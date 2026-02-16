@@ -1,3 +1,3 @@
-module github.com/dilema-cypher/Vigilat
+module github.com/dilema-cypher/vigilant
 
 go 1.25.4
