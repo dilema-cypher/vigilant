@@ -110,37 +110,34 @@ func (e *Event) AddError(err error){
 	e.fields["success"] = false
 }
 
-func (e *Event) End(){
-	duration := time.Since(e.start)
-	e.fields["duration"] = duration
+func (e *Event) End() {
+  duration := time.Since(e.start)
+  e.fields["duration_ms"] = duration.Milliseconds()
 
-	if _, ok := e.fields["success"]; !ok{
-		if _, hasError := e.fields["error"]; !hasError{
-			e.fields["success"] = true
-		}else{
-			e.fields["success"] = false
-		}
-	}
-	e.fields["host"] = hostname
-	e.fields["service"] = appName
-	e.fields["version"] = serviceVer
-	e.fields["service"] = appName
-	e.fields["version"] = serviceVer
+  if _, ok := e.fields["success"]; !ok {
+    _, hasError := e.fields["error"]
+    e.fields["success"] = !hasError
+  }
 
-	args := make([]any, 0, len(e.fields)*2)
-	for k, v := range e.fields{
-		args = append(args, k, v)
-	}
-	logger.Info(e.name, args...)
+  e.fields["host"] = hostname
+  e.fields["service"] = appName
+  e.fields["version"] = serviceVer
+  e.fields["message"] = e.name
+  
+  e.fields["timestamp"] = e.start.Format(time.RFC3339)
 
-	if initialized{
-		e.fields["message"] = e.name
+  args := make([]any, 0, len(e.fields)*2)
+  for k, v := range e.fields {
+    args = append(args, k, v)
+  }
+  logger.Info(e.name, args...)
 
-		jsonBytes, err := json.Marshal([]map[string]any{e.fields})
-		if err == nil{
-			logChannel <- jsonBytes
-		}
-	}
+  if initialized {
+    jsonBytes, err := json.Marshal(e.fields) 
+    if err == nil {
+      logChannel <- append(jsonBytes, '\n')
+    }
+  }
 }
 
 type contextkey struct{}
