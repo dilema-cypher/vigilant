@@ -60,37 +60,33 @@ func startSender(){
 }
 
 func sendToOpenObserve(payload []byte) {
-    // Adicione este Print para ver exatamente o que está saindo da sua lib
-    // fmt.Printf("Enviando para OpenObserve: %s\n", string(payload))
+	req, err := http.NewRequest("POST", ooURL, bytes.NewBuffer(payload))
+	if err != nil {
+		fmt.Printf("Error creating request: %v\n", err)
+		return
+	}
 
-    req, err := http.NewRequest("POST", ooURL, bytes.NewReader(payload))
-    // ... (configuração de headers)
-		req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", "application/json")
 
 	authHeader := ooAuth
-	if len(authHeader) < 6 || authHeader[:6] != "Basic"{
-		authHeader = "Basic " + authHeader
+	if len(authHeader) < 6 || authHeader[:6] != "Basic " {
+		authHeader = "Basic " + ooAuth
 	}
 	req.Header.Set("Authorization", authHeader)
-	
-    resp, err := httpClient.Do(req)
-    if err != nil {
-        fmt.Printf("Erro de conexão: %v\n", err)
-        return
-    }
-    defer resp.Body.Close()
 
-    // LEIA O CORPO DA RESPOSTA - É aqui que o OpenObserve explica por que ignorou os campos
-    buf := new(bytes.Buffer)
-    buf.ReadFrom(resp.Body)
-    
-    if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
-        fmt.Printf("ERRO OPENOBSERVE (Status %d): %s\n", resp.StatusCode, buf.String())
-    } else {
-        // Se retornar 200 mas o JSON de resposta tiver "error", você verá aqui
-        fmt.Printf("Resposta OpenObserve: %s\n", buf.String())
-    }
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		fmt.Printf("Error sending log to OpenObserve: %v\n", err)
+		return
+	}
+	fmt.Printf("OpenObserve response: %s\n", resp.Status)
+
+	if resp.StatusCode >= 300 {
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(resp.Body)
+	}
 }
+
 
 type Event struct{
 	name string
@@ -116,33 +112,38 @@ func (e *Event) AddError(err error){
 }
 
 func (e *Event) End() {
-  duration := time.Since(e.start)
-  e.fields["duration_ms"] = duration.Milliseconds()
+	duration := time.Since(e.start)
+	e.fields["duration_ms"] = duration.Milliseconds()
 
-  if _, ok := e.fields["success"]; !ok {
-    _, hasError := e.fields["error"]
-    e.fields["success"] = !hasError
-  }
+	if _, ok := e.fields["success"]; !ok {
+		if _, hasErr := e.fields["error"]; !hasErr {
+			e.fields["success"] = true
+		} else {
+			e.fields["success"] = false
+		}
+	}
 
-  e.fields["host"] = hostname
-  e.fields["service"] = appName
-  e.fields["version"] = serviceVer
-  e.fields["message"] = e.name
-  
-  e.fields["timestamp"] = e.start.Format(time.RFC3339)
+	e.fields["host"] = hostname
+	e.fields["service"] = appName
+	e.fields["version"] = serviceVer
+	e.fields["service"] = appName
+	e.fields["version"] = serviceVer
+	e.fields["timestamp"] = time.Now().Format(time.RFC3339) // Let OpenObserve assign timestamp
 
-  args := make([]any, 0, len(e.fields)*2)
-  for k, v := range e.fields {
-    args = append(args, k, v)
-  }
-  logger.Info(e.name, args...)
+	args := make([]any, 0, len(e.fields)*2)
+	for k, v := range e.fields {
+		args = append(args, k, v)
+	}
+	logger.Info(e.name, args...)
 
-  if initialized {
-    jsonBytes, err := json.Marshal(e.fields) 
-    if err == nil {
-      logChannel <- jsonBytes
-    }
-  }
+	if initialized {
+		e.fields["message"] = e.name
+
+		jsonBytes, err := json.Marshal([]map[string]any{e.fields})
+		if err == nil {
+			logChannel <- jsonBytes
+		}
+	}
 }
 
 type contextkey struct{}
