@@ -81,9 +81,10 @@ func sendToOpenObserve(payload []byte){
 	fmt.Printf("Response from openObserve: %v\n", resp.Status)
 	defer resp.Body.Close()
 
-	if resp.StatusCode >= 300{
-		buf := bytes.NewBuffer(nil)
+	if resp.StatusCode != http.StatusOK{
+		buf := new(bytes.Buffer)
 		buf.ReadFrom(resp.Body)
+		fmt.Printf("Error response from openObserve: %v\n", buf.String())
 	}
 }
 
@@ -135,7 +136,7 @@ func (e *Event) End() {
   if initialized {
     jsonBytes, err := json.Marshal(e.fields) 
     if err == nil {
-      logChannel <- append(jsonBytes, '\n')
+      logChannel <- jsonBytes
     }
   }
 }
