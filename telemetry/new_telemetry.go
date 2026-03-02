@@ -65,7 +65,14 @@ func sendToOpenObserve(payload []byte) {
 
     req, err := http.NewRequest("POST", ooURL, bytes.NewReader(payload))
     // ... (configuração de headers)
+		req.Header.Set("Content-Type", "application/json")
 
+	authHeader := ooAuth
+	if len(authHeader) < 6 || authHeader[:6] != "Basic"{
+		authHeader = "Basic " + authHeader
+	}
+	req.Header.Set("Authorization", authHeader)
+	
     resp, err := httpClient.Do(req)
     if err != nil {
         fmt.Printf("Erro de conexão: %v\n", err)
@@ -84,6 +91,7 @@ func sendToOpenObserve(payload []byte) {
         fmt.Printf("Resposta OpenObserve: %s\n", buf.String())
     }
 }
+
 type Event struct{
 	name string
 	fields map[string]any
