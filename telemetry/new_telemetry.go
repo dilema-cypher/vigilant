@@ -59,35 +59,31 @@ func startSender(){
 	}
 }
 
-func sendToOpenObserve(payload []byte){
-	req, err := http.NewRequest("POST",ooURL,bytes.NewReader(payload))
-	if err != nil{
-		fmt.Printf("Error creating request: %v\n", err)
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
+func sendToOpenObserve(payload []byte) {
+    // Adicione este Print para ver exatamente o que está saindo da sua lib
+    // fmt.Printf("Enviando para OpenObserve: %s\n", string(payload))
 
-	authHeader := ooAuth
-	if len(authHeader) < 6 || authHeader[:6] != "Basic"{
-		authHeader = "Basic " + authHeader
-	}
-	req.Header.Set("Authorization", authHeader)
+    req, err := http.NewRequest("POST", ooURL, bytes.NewReader(payload))
+    // ... (configuração de headers)
 
-	resp, err := httpClient.Do(req)
-	if err != nil{
-		fmt.Printf("Error sending request to openObserve: %v\n", err)
-		return
-	}
-	fmt.Printf("Response from openObserve: %v\n", resp.Status)
-	defer resp.Body.Close()
+    resp, err := httpClient.Do(req)
+    if err != nil {
+        fmt.Printf("Erro de conexão: %v\n", err)
+        return
+    }
+    defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK{
-		buf := new(bytes.Buffer)
-		buf.ReadFrom(resp.Body)
-		fmt.Printf("Error response from openObserve: %v\n", buf.String())
-	}
+    // LEIA O CORPO DA RESPOSTA - É aqui que o OpenObserve explica por que ignorou os campos
+    buf := new(bytes.Buffer)
+    buf.ReadFrom(resp.Body)
+    
+    if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
+        fmt.Printf("ERRO OPENOBSERVE (Status %d): %s\n", resp.StatusCode, buf.String())
+    } else {
+        // Se retornar 200 mas o JSON de resposta tiver "error", você verá aqui
+        fmt.Printf("Resposta OpenObserve: %s\n", buf.String())
+    }
 }
-
 type Event struct{
 	name string
 	fields map[string]any
