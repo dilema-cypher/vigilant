@@ -34,12 +34,10 @@ func ProcessItems(
 	ctx context.Context,
 	method string,
 	url string,
+	evt *Event,
 	) error {
 
-		evt := FromContext(ctx)
-
 		if evt != nil{
-			defer evt.End()
 
 			evt.Add("method", method)
 			evt.Add("url", url)
